@@ -7,7 +7,7 @@ from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 from google import genai
 from pypdf import PdfReader
-import streamlit_authenticator as stauth
+from authlib.integrations.requests_client import OAuth2Session
 
 # The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
 # Once authenticated, Streamlit receives the user token securely.
