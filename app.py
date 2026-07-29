@@ -24,6 +24,25 @@ if not st.user.is_logged_in:
     if st.button("Log in with your preferred platform", type="primary"):
         st.login("auth0")
 
+# Dynamically set the correct redirect_uri based on runtime environment
+def set_runtime_redirect():
+    try:
+        runtime_instance = runtime.Runtime.instance()
+        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
+    except Exception:
+        is_cloud = False
+
+    target_uri = (
+        st.secrets["auth"]["redirect_uri_prod"] 
+        if is_cloud 
+        else st.secrets["auth"]["redirect_uri_local"]
+    )
+    
+    # Safely inject into st.secrets for Streamlit's internal OIDC validator
+    st.secrets["auth"]["redirect_uri"] = target_uri
+
+set_runtime_redirect()
+
 # Initialize OAuth2 session for Auth0
 def get_auth_client():
     return OAuth2Session(
