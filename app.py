@@ -5,6 +5,7 @@ from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 from google import genai
 from pypdf import PdfReader
+import streamlit_authenticator as stauth
 
 # --- AUTHENTICATION CHECK ---
 if not st.user.is_logged_in:
@@ -14,9 +15,13 @@ if not st.user.is_logged_in:
     if st.button("Log in with your preferred platform", type="primary"):
         st.login("auth0")
 
-    # Stop execution here so unauthorized users can't see the app below
+auth0_domain = st.secrets["auth"]["https://toluwanimi.eu.auth0.com/.well-known/openid-configuration"]
+client_id = st.secrets["auth"]["0rqzP43rxXVKNqHqLHyZw2m7ueQqnpAa"]
+
+# The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
+# Once authenticated, Streamlit receives the user token securely.
     
-    st.stop()  # Halts execution here until the user logs in
+st.stop()  # Halts execution here until the user logs in
 
 # --- LOGGED-IN USER VIEW ---
 st.sidebar.markdown(f"**Welcome, {st.user.name}!**")
