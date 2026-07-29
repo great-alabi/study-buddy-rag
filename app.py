@@ -10,7 +10,7 @@ from authlib.integrations.requests_client import OAuth2Session
 
 # The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
 # Once authenticated, Streamlit receives the user token securely.
-auth0_domain = st.secrets["auth"]["https://toluwanimi.eu.auth0.com/.well-known/openid-configuration"]
+
 client_id = st.secrets["auth"]["client_id"]
 client_secret = st.secrets["auth"]["client_secret"]
 server_metadata_url = st.secrets["auth"]["server_metadata_url"]
