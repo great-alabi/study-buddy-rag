@@ -1,11 +1,21 @@
 import os
+from requests_oauthlib import OAuth2Session
 import streamlit as st
+import streamlit as runtime
 from dotenv import load_dotenv
 from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 from google import genai
 from pypdf import PdfReader
 import streamlit_authenticator as stauth
+
+# The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
+# Once authenticated, Streamlit receives the user token securely.
+auth0_domain = st.secrets["auth"]["https://toluwanimi.eu.auth0.com/.well-known/openid-configuration"]
+client_id = st.secrets["auth"]["client_id"]
+client_secret = st.secrets["auth"]["client_secret"]
+server_metadata_url = st.secrets["auth"]["server_metadata_url"]
+auth0_domain = server_metadata_url.split("/")[2]
 
 # --- AUTHENTICATION CHECK ---
 if not st.user.is_logged_in:
@@ -15,13 +25,30 @@ if not st.user.is_logged_in:
     if st.button("Log in with your preferred platform", type="primary"):
         st.login("auth0")
 
-auth0_domain = st.secrets["auth"]["https://toluwanimi.eu.auth0.com/.well-known/openid-configuration"]
-client_id = st.secrets["auth"]["0rqzP43rxXVKNqHqLHyZw2m7ueQqnpAa"]
+# Initialize OAuth2 session for Auth0
+def get_auth_client():
+    return OAuth2Session(
+        client_id=client_id,
+        client_secret=client_secret,
+        scope="openid profile email",
+    )
 
-# The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
-# Once authenticated, Streamlit receives the user token securely.
-    
+def get_redirect_uri():
+    try:
+        # Streamlit Cloud mounts apps under /mount/
+        runtime_instance = runtime.Runtime.instance()
+        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
+    except Exception:
+        is_cloud = False
+
+    if is_cloud:
+        return st.secrets["auth"]["http://study-buddy-rag-7fdfdjuldm253xqtfih8xi.streamlit.app/oauth2callback"]
+    else:
+        return st.secrets["auth"]["http://localhost:8501/oauth2callback"]
+
+
 st.stop()  # Halts execution here until the user logs in
+
 
 # --- LOGGED-IN USER VIEW ---
 st.sidebar.markdown(f"**Welcome, {st.user.name}!**")
