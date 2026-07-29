@@ -5,15 +5,17 @@ from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 from google import genai
 from pypdf import PdfReader
-import streamlit as st
 
 # --- AUTHENTICATION CHECK ---
 if not st.user.is_logged_in:
     st.title("Welcome to Study Buddy RAG 📚")
-    st.write("Please log in to access your intelligent study assistant.")
+    st.write("Please log in using your preferred platform to continue:.")
+
+    if st.button("Log in with your preferred platform", type="primary"):
+        st.login("auth0")
+
+    # Stop execution here so unauthorized users can't see the app below
     
-    if st.button("Log in with Google", use_container_width=True):
-        st.login()  # Triggers Streamlit's built-in OIDC flow
     st.stop()  # Halts execution here until the user logs in
 
 # --- LOGGED-IN USER VIEW ---
