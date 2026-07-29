@@ -1,5 +1,4 @@
 import os
-from requests_oauthlib import OAuth2Session
 import streamlit as st
 import streamlit as runtime
 from dotenv import load_dotenv
