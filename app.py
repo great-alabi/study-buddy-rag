@@ -7,7 +7,6 @@ from sentence_transformers import SentenceTransformer
 from google import genai
 from pypdf import PdfReader
 from authlib.integrations.requests_client import OAuth2Session
-from streamlit.runtime.scriptrunner import get_script_run_ctxs
 
 # The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
 # Once authenticated, Streamlit receives the user token securely.
