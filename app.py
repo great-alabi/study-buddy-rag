@@ -13,8 +13,8 @@ try:
 except ImportError:
     pass
 
-client_id = st.secrets["auth"]["client_id"]
-client_secret = st.secrets["auth"]["client_secret"]
+client_id = st.secrets["auth"]["auth0"]["client_id"]
+client_secret = st.secrets["auth"]["auth0"]["client_secret"]
 server_metadata_url = st.secrets["auth"]["server_metadata_url"]
 auth0_domain = server_metadata_url.split("/")[2]
 
