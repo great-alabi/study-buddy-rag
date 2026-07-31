@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-import streamlit as runtime
+from streamlit import runtime
 from dotenv import load_dotenv
 from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
@@ -8,8 +8,27 @@ from google import genai
 from pypdf import PdfReader
 from authlib.integrations.requests_client import OAuth2Session
 
-# The Auth0 universal login handles routing to Google, GitHub, Apple, X and Facebook.
-# Once authenticated, Streamlit receives the user token securely.
+# Safely load local .env if it exists (for local development)
+try:
+    load_dotenv()
+except ImportError:
+    pass
+
+# --- ENVIRONMENT & AUTHENTICATION SETUP ---
+def configure_auth_redirect():
+    try:
+        runtime_instance = runtime.Runtime.instance()
+        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
+    except Exception:
+        is_cloud = False
+
+    # Dynamically point Streamlit's required redirect_uri to the active environment
+    if is_cloud:
+        st.secrets["auth"]["redirect_uri"] = "https://study-buddy-rag-7fdfdjuldm253xqtfih8xi.streamlit.app/oauth2callback"
+    else:
+        st.secrets["auth"]["redirect_uri"] = "http://localhost:8501/oauth2callback"
+
+configure_auth_redirect()
 
 client_id = st.secrets["auth"]["client_id"]
 client_secret = st.secrets["auth"]["client_secret"]
@@ -19,53 +38,12 @@ auth0_domain = server_metadata_url.split("/")[2]
 # --- AUTHENTICATION CHECK ---
 if not st.user.is_logged_in:
     st.title("Welcome to Study Buddy RAG 📚")
-    st.write("Please log in using your preferred platform to continue:.")
+    st.write("Please log in using your preferred platform to continue.")
 
-    if st.button("Log in with your preferred platform", type="primary"):
+    if st.button("Log in with Auth0", type="primary"):
         st.login("auth0")
-
-# Dynamically set the correct redirect_uri based on runtime environment
-def set_runtime_redirect():
-    try:
-        runtime_instance = runtime.Runtime.instance()
-        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
-    except Exception:
-        is_cloud = False
-
-    target_uri = (
-        st.secrets["auth"]["redirect_uri_prod"] 
-        if is_cloud 
-        else st.secrets["auth"]["redirect_uri_local"]
-    )
     
-    # Safely inject into st.secrets for Streamlit's internal OIDC validator
-    st.secrets["auth"]["redirect_uri"] = target_uri
-
-set_runtime_redirect()
-
-# Initialize OAuth2 session for Auth0
-def get_auth_client():
-    return OAuth2Session(
-        client_id=client_id,
-        client_secret=client_secret,
-        scope="openid profile email",
-    )
-
-def get_redirect_uri():
-    try:
-        # Streamlit Cloud mounts apps under /mount/
-        runtime_instance = runtime.Runtime.instance()
-        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
-    except Exception:
-        is_cloud = False
-
-    if is_cloud:
-        return st.secrets["auth"]["http://study-buddy-rag-7fdfdjuldm253xqtfih8xi.streamlit.app/oauth2callback"]
-    else:
-        return st.secrets["auth"]["http://localhost:8501/oauth2callback"]
-
-
-st.stop()  # Halts execution here until the user logs in
+    st.stop()  # Halts execution here until the user logs in
 
 # --- LOGGED-IN USER VIEW ---
 st.sidebar.markdown(f"**Welcome, {st.user.name}!**")
@@ -74,28 +52,9 @@ st.sidebar.text(st.user.email)
 if st.sidebar.button("Log out"):
     st.logout()
 
-# --- FETCH SECRETS SAFELY (Cloud vs Local) ---
-PINECONE_API_KEY = st.secrets.get("PINECONE_API_KEY") or os.getenv("PINECONE_API_KEY")
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-
-# ---> YOUR EXISTING RAG CODE GOES HERE <---
-st.title("Your RAG Dashboard")
-
-# Safely load local .env if it exists (for local development)
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:
-    pass
-
 # Safe key retrieval for both Local & Cloud environments
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY") or st.secrets.get(
-    "PINECONE_API_KEY"
-)
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY") or st.secrets.get("PINECONE_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
-
-# Pass these variables into your Pinecone and Gemini client initializations
 
 # Page config
 st.set_page_config(page_title="My Study Buddy", layout="centered")
@@ -104,10 +63,10 @@ st.title("📚 My Study Buddy")
 # Initialize clients (cached so they don't reload on every click)
 @st.cache_resource
 def init_rag_clients():
-    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+    pc = Pinecone(api_key=PINECONE_API_KEY)
     index = pc.Index("research-papers-index")
     model = SentenceTransformer('all-MiniLM-L6-v2')
-    ai_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    ai_client = genai.Client(api_key=GEMINI_API_KEY)
     return index, model, ai_client
 
 index, model, ai_client = init_rag_clients()
@@ -147,11 +106,9 @@ with st.sidebar:
     if existing_files:
         st.subheader("Existing Files")
         for file in existing_files:
-            # Check if this file was used in the latest response to apply green styling
             is_active = file in st.session_state.active_sources
             card_class = "file-card-active" if is_active else "file-card"
             
-            # Render file card wrapper container
             with st.container():
                 st.markdown(f'<div class="{card_class}">', unsafe_allow_html=True)
                 col1, col2 = st.columns([0.75, 0.25])
@@ -159,22 +116,18 @@ with st.sidebar:
                     prefix_icon = "🟢 📄" if is_active else "📄"
                     st.markdown(f"{prefix_icon} **{file}**")
                 with col2:
-                    # 3-dot configuration popover menu
                     with st.popover("⋮"):
                         st.write(f"Manage **{file}**")
                         if st.button("Delete File", key=f"del_{file}", type="primary"):
                             try:
-                                # 1. Permanently delete the file from the local folder
                                 file_path = os.path.join(papers_folder, file)
                                 if os.path.exists(file_path):
                                     os.remove(file_path)
                                 
-                                # 2. Comprehensive double-tap deletion from Pinecone
                                 index.delete(filter={"source_paper": {"$eq": file}})
                                 potential_ids = [f"{file}-{idx}" for idx in range(500)]
                                 index.delete(ids=potential_ids)
                                     
-                                # Clear active state if deleted file was highlighted
                                 if file in st.session_state.active_sources:
                                     st.session_state.active_sources.remove(file)
                                     
@@ -195,13 +148,11 @@ with st.sidebar:
         if st.button("Process & Index Documents"):
             with st.spinner("Processing and indexing documents..."):
                 for uploaded_file in uploaded_files:
-                    # 1. Save file locally
                     bytes_data = uploaded_file.read()
                     save_path = os.path.join(papers_folder, uploaded_file.name)
                     with open(save_path, "wb") as f:
                         f.write(bytes_data)
                     
-                    # 2. Extract text based on file type
                     full_text = ""
                     if uploaded_file.name.endswith(".pdf"):
                         reader = PdfReader(save_path)
@@ -212,11 +163,9 @@ with st.sidebar:
                     else:
                         full_text = bytes_data.decode("utf-8", errors="ignore")
                     
-                    # 3. Simple chunking
                     chunk_size = 500
                     chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size)]
                     
-                    # 4. Embed and upsert to Pinecone
                     vectors_to_upsert = []
                     for idx, chunk in enumerate(chunks):
                         if len(chunk.strip()) > 50:  
@@ -243,12 +192,10 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# User input query
 if user_query := st.chat_input("Ask a question about your library..."):
     st.session_state.messages.append({"role": "user", "content": user_query})
     with st.chat_message("user"):
@@ -257,7 +204,6 @@ if user_query := st.chat_input("Ask a question about your library..."):
     with st.chat_message("assistant"):
         with st.spinner("Searching library..."):
             try:
-                # 1. Embed query & search Pinecone across all stored docs
                 query_vector = model.encode(user_query).tolist()
                 search_results = index.query(
                     vector=query_vector, 
@@ -277,7 +223,6 @@ if user_query := st.chat_input("Ask a question about your library..."):
                     
                 combined_context = "\n\n---\n\n".join(context_chunks)
                 
-                # 2. Build prompt for Gemini instructing it to cite sources clearly
                 prompt = f"""
                 You are an expert research assistant. Answer the user's question using only the context chunks below. 
                 Explicitly mention the source document filename when referencing information from that document.
@@ -288,24 +233,18 @@ if user_query := st.chat_input("Ask a question about your library..."):
                 User Question: {user_query}
                 """
                 
-                # 3. Generate response
                 response = ai_client.models.generate_content(
-                    model='gemini-3.1-flash-lite',
+                    model='gemini-2.5-flash',
                     contents=prompt
                 )
                 answer_text = response.text
                 
-                # 4. Determine which files were actually referenced/used in the chunks passed to the answer
-                # (You can also filter by checking which names appear in answer_text, but checking retrieved_sources 
-                # matches the context injection). Let's highlight any retrieved source that contributed to the response context.
                 st.session_state.active_sources = list(retrieved_sources)
                 
                 st.markdown(answer_text)
                 st.session_state.messages.append({"role": "assistant", "content": answer_text})
                 
-                # Force rerun so sidebar instantly updates its green highlights for the user
                 st.rerun()
                 
             except Exception as e:
                 st.error(f"Connection error while searching Pinecone: {e}")
-
