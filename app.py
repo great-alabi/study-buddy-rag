@@ -14,22 +14,6 @@ try:
 except ImportError:
     pass
 
-# --- ENVIRONMENT & AUTHENTICATION SETUP ---
-def configure_auth_redirect():
-    try:
-        runtime_instance = runtime.Runtime.instance()
-        is_cloud = runtime_instance._main_script_path.startswith("/mount/")
-    except Exception:
-        is_cloud = False
-
-    # Dynamically point Streamlit's required redirect_uri to the active environment
-    if is_cloud:
-        st.secrets["auth"]["redirect_uri"] = "https://study-buddy-rag-7fdfdjuldm253xqtfih8xi.streamlit.app/oauth2callback"
-    else:
-        st.secrets["auth"]["redirect_uri"] = "http://localhost:8501/oauth2callback"
-
-configure_auth_redirect()
-
 client_id = st.secrets["auth"]["client_id"]
 client_secret = st.secrets["auth"]["client_secret"]
 server_metadata_url = st.secrets["auth"]["server_metadata_url"]
