@@ -15,7 +15,7 @@ except ImportError:
 
 client_id = st.secrets["auth"]["auth0"]["client_id"]
 client_secret = st.secrets["auth"]["auth0"]["client_secret"]
-server_metadata_url = st.secrets["auth"]["server_metadata_url"]
+server_metadata_url = st.secrets["auth"]["auth0"]["server_metadata_url"]
 auth0_domain = server_metadata_url.split("/")[2]
 
 # --- AUTHENTICATION CHECK ---
