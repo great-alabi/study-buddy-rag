@@ -68,28 +68,6 @@ def get_redirect_uri():
 
 st.stop()  # Halts execution here until the user logs in
 
-# Automatically detect if we are running locally or on Streamlit Cloud
-def configure_auth_redirect():
-    try:
-        ctx = get_script_run_ctx()
-        if ctx and hasattr(ctx, "session_id"):
-            # Check headers or fallback to environment cues
-            # Local streamlit typically binds to localhost
-            is_local = True # Default assumption for local testing unless on cloud mount path
-    except Exception:
-        is_local = True
-
-    # Robust check using python environment or file path indicators
-    import os
-    if os.path.exists("/mount/src"): # Streamlit Cloud standard mount directory
-        target_uri = "https://study-buddy-rag-7fdfdjuldm253xqtfih8xi.streamlit.app/oauth2callback"
-    else:
-        target_uri = "http://localhost:8501/oauth2callback"
-        
-    st.secrets["auth"]["redirect_uri"] = target_uri
-
-configure_auth_redirect()
-
 # --- LOGGED-IN USER VIEW ---
 st.sidebar.markdown(f"**Welcome, {st.user.name}!**")
 st.sidebar.text(st.user.email)
