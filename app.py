@@ -23,7 +23,7 @@ if not st.user.is_logged_in:
     st.title("Welcome to Study Buddy RAG 📚")
     st.write("Please log in using your preferred platform to continue.")
 
-    if st.button("Log in with Auth0", type="primary"):
+    if st.button("Log in with your preferred platform to continue", type="primary"):
         st.login("auth0")
     
     st.stop()  # Halts execution here until the user logs in
